@@ -40,11 +40,15 @@ class CopierEngine:
             master_equity = master.equity if master and master.equity > 0 else 1000.0
             master_balance = master.balance if master and master.balance > 0 else 1000.0
 
-            # 2. Find all active slave accounts configured to copy
+            # 2. Find all active slave accounts configured and APPROVED to copy
             active_slaves = (
                 db.query(SlaveAccount)
                 .join(CopierSetting, CopierSetting.slave_account_id == SlaveAccount.id)
-                .filter(SlaveAccount.is_active == True, CopierSetting.is_enabled == True)
+                .filter(
+                    SlaveAccount.is_active == True,
+                    SlaveAccount.is_approved == True,
+                    CopierSetting.is_enabled == True
+                )
                 .all()
             )
 

@@ -1,28 +1,181 @@
-// DAVIDSONSFX TRADING COPIER — Real-Time Frontend Engine
+// DAVIDSONSFX TRADING COPIER — Real-Time Production Engine
 let ws = null;
 let authToken = localStorage.getItem("dfx_token") || "";
+let currentUser = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (window.lucide) lucide.createIcons();
-  setupNavigation();
-  await ensureAuthentication();
-  initWebSocket();
-  loadDashboardData();
-  fetchLiveMarketQuotes();
+  
+  if (authToken) {
+    await checkAuthAndLoad();
+  } else {
+    showView("landing");
+  }
 
-  // Periodically refresh stats, active positions, and quotes
-  setInterval(loadDashboardData, 4000);
+  fetchLiveMarketQuotes();
   setInterval(fetchLiveMarketQuotes, 5000);
 });
 
-// ==================== AUTHENTICATION ====================
-async function ensureAuthentication() {
-  if (authToken) return;
+// ==================== VIEW ROUTER ====================
+function showView(viewName) {
+  document.querySelectorAll(".page-view").forEach(v => v.classList.remove("active"));
+  const viewElem = document.getElementById(`view-${viewName}`);
+  if (viewElem) viewElem.classList.add("active");
+  if (window.lucide) lucide.createIcons();
+}
+
+async function checkAuthAndLoad() {
+  try {
+    const res = await fetch("/api/auth/me", { headers: getAuthHeaders() });
+    if (res.ok) {
+      currentUser = await res.json();
+      setupDashboardForUser(currentUser);
+      showView("dashboard");
+      initWebSocket();
+      loadDashboardData();
+    } else {
+      logoutUser();
+    }
+  } catch (err) {
+    console.error("Auth check failed:", err);
+    showView("landing");
+  }
+}
+
+function getAuthHeaders() {
+  return {
+    "Content-Type": "application/json",
+    ...(authToken ? { "Authorization": `Bearer ${authToken}` } : {})
+  };
+}
+
+// ==================== DASHBOARD SETUP BY ROLE ====================
+function setupDashboardForUser(user) {
+  document.getElementById("user-display-name").textContent = user.username;
+  const menuContainer = document.getElementById("nav-menu-container");
+  const headerActions = document.getElementById("header-actions-container");
+  const roleBadgeText = document.getElementById("role-badge-text");
+  const sidebarPillText = document.getElementById("sidebar-pill-text");
+  const portalRoleTag = document.getElementById("portal-role-tag");
+
+  if (user.is_admin) {
+    // ADMIN DASHBOARD
+    roleBadgeText.textContent = "ADMIN";
+    sidebarPillText.textContent = "OWNER / ADMIN";
+    portalRoleTag.textContent = "ADMINISTRATOR COMMAND CENTER";
+    document.getElementById("page-title-text").textContent = "DavidsonsFX Admin Command Center";
+    document.getElementById("page-subtitle-text").textContent = "Manage subscriber approvals, master signal providers, and live replication";
+
+    menuContainer.innerHTML = `
+      <button class="nav-item active" data-tab="admin-pending">
+        <i data-lucide="user-check"></i>
+        <span>Pending Approvals</span>
+      </button>
+      <button class="nav-item" data-tab="admin-followers">
+        <i data-lucide="users"></i>
+        <span>All Followers</span>
+      </button>
+      <button class="nav-item" data-tab="admin-master">
+        <i data-lucide="award"></i>
+        <span>Master Account</span>
+      </button>
+      <button class="nav-item" data-tab="admin-logs">
+        <i data-lucide="activity"></i>
+        <span>Execution Audit</span>
+      </button>
+    `;
+
+    headerActions.innerHTML = `
+      <button class="btn btn-secondary" onclick="openAddMasterModal()">
+        <i data-lucide="award"></i> Add Master MT5
+      </button>
+      <button class="btn btn-primary" onclick="openAddAccountModal()">
+        <i data-lucide="plus"></i> Add Follower Direct
+      </button>
+    `;
+
+    setupNavigation();
+    switchTab("admin-pending");
+
+  } else {
+    // SUBSCRIBER / CLIENT DASHBOARD
+    roleBadgeText.textContent = "CLIENT PORTAL";
+    sidebarPillText.textContent = "VIP SUBSCRIBER";
+    portalRoleTag.textContent = "SUBSCRIBER DASHBOARD";
+    document.getElementById("page-title-text").textContent = "My Trading Copier";
+    document.getElementById("page-subtitle-text").textContent = "Manage your connected MT5 account and live copied positions";
+
+    menuContainer.innerHTML = `
+      <button class="nav-item active" data-tab="client-home">
+        <i data-lucide="layout-dashboard"></i>
+        <span>My Account</span>
+      </button>
+    `;
+
+    headerActions.innerHTML = `
+      <button class="btn btn-primary" onclick="openAddAccountModal()">
+        <i data-lucide="link"></i> Connect MT5 Account
+      </button>
+    `;
+
+    setupNavigation();
+    switchTab("client-home");
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function setupNavigation() {
+  const navButtons = document.querySelectorAll(".nav-item");
+  navButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      navButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const tabId = btn.getAttribute("data-tab");
+      switchTab(tabId);
+    });
+  });
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("active"));
+  const activePane = document.getElementById(`tab-${tabId}`);
+  if (activePane) activePane.classList.add("active");
+}
+
+// ==================== AUTH ACTIONS ====================
+function openAuthModal(tab = "login") {
+  switchAuthTab(tab);
+  document.getElementById("modal-auth").classList.add("show");
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeAuthModal() {
+  document.getElementById("modal-auth").classList.remove("show");
+}
+
+function switchAuthTab(tab) {
+  const isLogin = tab === "login";
+  document.getElementById("tab-btn-login").classList.toggle("active", isLogin);
+  document.getElementById("tab-btn-register").classList.toggle("active", !isLogin);
+  document.getElementById("form-login").style.display = isLogin ? "block" : "none";
+  document.getElementById("form-register").style.display = !isLogin ? "block" : "none";
+  document.getElementById("auth-modal-title").textContent = isLogin ? "Client Sign In" : "Create Subscriber Account";
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById("btn-login-submit");
+  btn.disabled = true;
+  btn.textContent = "Signing In...";
+
+  const username = document.getElementById("login-username").value;
+  const password = document.getElementById("login-password").value;
 
   try {
     const formData = new URLSearchParams();
-    formData.append("username", "admin");
-    formData.append("password", "admin1234");
+    formData.append("username", username);
+    formData.append("password", password);
 
     const res = await fetch("/api/auth/token", {
       method: "POST",
@@ -34,43 +187,66 @@ async function ensureAuthentication() {
       const data = await res.json();
       authToken = data.access_token;
       localStorage.setItem("dfx_token", authToken);
+      closeAuthModal();
+      await checkAuthAndLoad();
+    } else {
+      const err = await res.json();
+      alert("Sign In Failed: " + (err.detail || "Invalid credentials"));
     }
   } catch (err) {
-    console.warn("Authentication notice:", err);
+    alert("Connection Error: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Sign In to Dashboard";
   }
 }
 
-function getAuthHeaders() {
-  return {
-    "Content-Type": "application/json",
-    ...(authToken ? { "Authorization": `Bearer ${authToken}` } : {})
+async function handleRegisterSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById("btn-register-submit");
+  btn.disabled = true;
+  btn.textContent = "Creating Account...";
+
+  const payload = {
+    full_name: document.getElementById("reg-fullname").value,
+    email: document.getElementById("reg-email").value,
+    username: document.getElementById("reg-username").value,
+    phone: document.getElementById("reg-phone").value,
+    telegram: document.getElementById("reg-telegram").value,
+    password: document.getElementById("reg-password").value
   };
+
+  try {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      authToken = data.access_token;
+      localStorage.setItem("dfx_token", authToken);
+      closeAuthModal();
+      await checkAuthAndLoad();
+    } else {
+      const err = await res.json();
+      alert("Registration Failed: " + (err.detail || "Error creating account"));
+    }
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Create Account & Proceed";
+  }
 }
 
-// ==================== NAVIGATION ====================
-function setupNavigation() {
-  const navButtons = document.querySelectorAll(".nav-item");
-  navButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-      navButtons.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      const tabId = btn.getAttribute("data-tab");
-      document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("active"));
-      const activePane = document.getElementById(`tab-${tabId}`);
-      if (activePane) activePane.classList.add("active");
-
-      const titleMap = {
-        overview: "Trading Copier Dashboard",
-        accounts: "Follower MT5 Accounts",
-        master: "Master Signal Provider",
-        trades: "Active Copied Positions",
-        logs: "Execution Audit Trail",
-        system: "Host & Terminal Diagnostics"
-      };
-      document.getElementById("page-title-text").textContent = titleMap[tabId] || "Trading Copier";
-    });
-  });
+function logoutUser() {
+  authToken = "";
+  currentUser = null;
+  localStorage.removeItem("dfx_token");
+  if (ws) ws.close();
+  showView("landing");
 }
 
 // ==================== WEBSOCKET ====================
@@ -79,87 +255,273 @@ function initWebSocket() {
   const wsUrl = `${protocol}//${window.location.host}/ws`;
 
   ws = new WebSocket(wsUrl);
-
   ws.onopen = () => {
-    document.getElementById("ws-pulse").style.backgroundColor = "#10b981";
-    document.getElementById("ws-status-text").textContent = "Cloud Relay Live";
+    const pulse = document.getElementById("ws-pulse");
+    if (pulse) pulse.style.backgroundColor = "#10b981";
+    const text = document.getElementById("ws-status-text");
+    if (text) text.textContent = "Cloud Relay Live";
   };
-
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      handleWebSocketMessage(data);
-    } catch (e) {
-      console.log("WS message:", event.data);
-    }
-  };
-
-  ws.onclose = () => {
-    document.getElementById("ws-pulse").style.backgroundColor = "#f43f5e";
-    document.getElementById("ws-status-text").textContent = "Connecting...";
-    setTimeout(initWebSocket, 3000);
-  };
-}
-
-function handleWebSocketMessage(msg) {
-  if (msg.type === "SIGNAL_PROCESSED" || msg.type === "TRADE_OPENED" || msg.type === "TRADE_CLOSED") {
+  ws.onmessage = () => {
     loadDashboardData();
-  }
-}
-
-// ==================== LIVE MARKET QUOTES ====================
-async function fetchLiveMarketQuotes() {
-  try {
-    const res = await fetch("/api/trades/quotes", { headers: getAuthHeaders() });
-    if (!res.ok) return;
-    const quotes = await res.json();
-
-    if (quotes.XAUUSD && quotes.XAUUSD.ask) {
-      document.getElementById("ticker-gold").textContent = quotes.XAUUSD.ask.toLocaleString(undefined, {minimumFractionDigits: 2});
-    }
-    if (quotes.EURUSD && quotes.EURUSD.ask) {
-      document.getElementById("ticker-eur").textContent = quotes.EURUSD.ask.toFixed(5);
-    }
-    if (quotes.US30 && quotes.US30.ask) {
-      document.getElementById("ticker-us30").textContent = quotes.US30.ask.toLocaleString(undefined, {minimumFractionDigits: 1});
-    }
-    if (quotes.BTCUSD && quotes.BTCUSD.ask) {
-      document.getElementById("ticker-btc").textContent = quotes.BTCUSD.ask.toLocaleString(undefined, {minimumFractionDigits: 2});
-    }
-  } catch (err) {
-    // Quotes will update once MT5 is active
-  }
+  };
+  ws.onclose = () => {
+    const pulse = document.getElementById("ws-pulse");
+    if (pulse) pulse.style.backgroundColor = "#f43f5e";
+    setTimeout(initWebSocket, 4000);
+  };
 }
 
 // ==================== DATA LOADERS ====================
 async function loadDashboardData() {
-  await Promise.all([
-    loadStats(),
-    loadActivePositions(),
-    loadSlaveAccounts(),
-    loadMasterAccounts(),
-    loadTradeLogs()
-  ]);
+  if (!currentUser) return;
+
+  if (currentUser.is_admin) {
+    await Promise.all([
+      loadPendingAccounts(),
+      loadAdminFollowers(),
+      loadAdminMasters(),
+      loadTradeLogs()
+    ]);
+  } else {
+    await Promise.all([
+      loadClientAccountView(),
+      loadActivePositions()
+    ]);
+  }
 }
 
-async function loadStats() {
+// ==================== CLIENT SPECIFIC DATA ====================
+async function loadClientAccountView() {
   try {
-    const res = await fetch("/api/trades/stats", { headers: getAuthHeaders() });
+    const res = await fetch("/api/accounts/slave", { headers: getAuthHeaders() });
     if (!res.ok) return;
-    const stats = await res.json();
+    const accounts = await res.json();
 
-    document.getElementById("stat-followers").textContent = stats.active_followers;
-    document.getElementById("stat-master-equity").textContent = `$${stats.master_equity.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-    document.getElementById("stat-total-trades").textContent = stats.total_copied_trades;
-    document.getElementById("stat-avg-latency").textContent = `${stats.avg_latency_ms} ms`;
-    document.getElementById("live-latency").textContent = stats.total_copied_trades > 0 ? `${stats.avg_latency_ms} ms` : "Live";
-    
-    const rate = stats.total_copied_trades > 0 
-      ? Math.round((stats.successful_trades / stats.total_copied_trades) * 100) 
-      : 100;
-    document.getElementById("stat-success-rate").textContent = `${rate}% Success`;
+    const pendingBanner = document.getElementById("client-pending-banner");
+    const activeBanner = document.getElementById("client-active-banner");
+    const detailsContainer = document.getElementById("client-account-details");
+    const statusPill = document.getElementById("client-status-pill");
+    const connectBtn = document.getElementById("btn-client-connect");
+
+    if (accounts.length === 0) {
+      pendingBanner.style.display = "none";
+      activeBanner.style.display = "none";
+      statusPill.textContent = "Not Connected";
+      statusPill.className = "text-muted";
+      connectBtn.style.display = "inline-flex";
+      detailsContainer.innerHTML = `
+        <div style="padding: 30px; text-align: center;">
+          <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--gold-400); margin-bottom: 12px;"></i>
+          <h4 style="font-size: 1.1rem; margin-bottom: 6px;">No MT5 Account Linked Yet</h4>
+          <p class="text-muted" style="max-width: 400px; margin: 0 auto 18px;">Connect your MetaTrader 5 account and provide your payment reference to start copying.</p>
+          <button class="btn btn-primary" onclick="openAddAccountModal()">
+            <i data-lucide="plus"></i> Connect MT5 Trading Account
+          </button>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+
+    const acc = accounts[0];
+    connectBtn.style.display = "none";
+
+    if (!acc.is_approved) {
+      pendingBanner.style.display = "flex";
+      activeBanner.style.display = "none";
+      statusPill.textContent = "Pending Admin Approval";
+      statusPill.className = "text-gold";
+    } else {
+      pendingBanner.style.display = "none";
+      activeBanner.style.display = "flex";
+      statusPill.textContent = "Live & Approved";
+      statusPill.className = "text-emerald";
+    }
+
+    detailsContainer.innerHTML = `
+      <div class="risk-info-list">
+        <div class="risk-info-item">
+          <span>Account Label:</span>
+          <strong>${acc.name}</strong>
+        </div>
+        <div class="risk-info-item">
+          <span>MT5 Login:</span>
+          <strong class="text-gold">#${acc.login}</strong>
+        </div>
+        <div class="risk-info-item">
+          <span>Broker Server:</span>
+          <strong>${acc.server}</strong>
+        </div>
+        <div class="risk-info-item">
+          <span>Live Balance / Equity:</span>
+          <strong>$${acc.balance.toFixed(2)} / $${acc.equity.toFixed(2)} ${acc.currency}</strong>
+        </div>
+        <div class="risk-info-item">
+          <span>Payment Reference:</span>
+          <code>${acc.payment_reference || 'N/A'} (${acc.payment_method || 'M-Pesa'})</code>
+        </div>
+        <div class="risk-info-item">
+          <span>Approval Status:</span>
+          <span class="badge ${acc.is_approved ? 'badge-success' : 'badge-gold'}">
+            ${acc.approval_status}
+          </span>
+        </div>
+      </div>
+    `;
+
+    if (window.lucide) lucide.createIcons();
+
   } catch (err) {
-    console.error("Failed to load stats:", err);
+    console.error("Failed to load client account:", err);
+  }
+}
+
+// ==================== ADMIN SPECIFIC DATA ====================
+async function loadPendingAccounts() {
+  try {
+    const res = await fetch("/api/accounts/pending", { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const pending = await res.json();
+
+    const tbody = document.getElementById("tbody-admin-pending");
+    if (pending.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No pending accounts in queue. All subscribers are approved!</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = pending.map(a => `
+      <tr>
+        <td><strong>${a.name}</strong></td>
+        <td><strong>#${a.login}</strong></td>
+        <td class="text-muted">${a.server}</td>
+        <td><span class="badge badge-gold">${a.payment_method || 'M-Pesa'}</span></td>
+        <td><code>${a.payment_reference || 'Awaiting'}</code></td>
+        <td>${a.telegram_handle || '--'}</td>
+        <td>$${a.balance.toFixed(2)}</td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-sm btn-success" onclick="approveAccount(${a.id})">
+              <i data-lucide="check"></i> Approve & Connect
+            </button>
+            <button class="btn-sm btn-danger" onclick="rejectAccount(${a.id})">
+              &times; Reject
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+
+    if (window.lucide) lucide.createIcons();
+
+  } catch (err) {
+    console.error("Failed to load pending accounts:", err);
+  }
+}
+
+async function approveAccount(id) {
+  if (!confirm("Confirm payment received and approve this MT5 subscriber account for live copying?")) return;
+  try {
+    const res = await fetch(`/api/accounts/slave/${id}/approve`, {
+      method: "POST",
+      headers: getAuthHeaders()
+    });
+    if (res.ok) {
+      alert("Subscriber account approved and connected to Master!");
+      loadPendingAccounts();
+      loadAdminFollowers();
+    } else {
+      alert("Error approving account");
+    }
+  } catch (e) {
+    alert("Approval error: " + e.message);
+  }
+}
+
+async function rejectAccount(id) {
+  if (!confirm("Are you sure you want to reject this subscriber's application?")) return;
+  try {
+    const res = await fetch(`/api/accounts/slave/${id}/reject`, {
+      method: "POST",
+      headers: getAuthHeaders()
+    });
+    if (res.ok) {
+      alert("Account rejected.");
+      loadPendingAccounts();
+      loadAdminFollowers();
+    }
+  } catch (e) {
+    alert("Reject error: " + e.message);
+  }
+}
+
+async function loadAdminFollowers() {
+  try {
+    const res = await fetch("/api/accounts/slave", { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const accounts = await res.json();
+
+    const tbody = document.getElementById("tbody-admin-followers");
+    if (accounts.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No follower accounts registered yet.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = accounts.map(a => `
+      <tr>
+        <td><strong>${a.name}</strong></td>
+        <td>#${a.login}</td>
+        <td class="text-muted">${a.server}</td>
+        <td>$${a.balance.toFixed(2)} / $${a.equity.toFixed(2)}</td>
+        <td>
+          <span class="badge ${a.is_approved ? 'badge-success' : 'badge-gold'}">
+            ${a.approval_status}
+          </span>
+        </td>
+        <td>
+          <span class="badge ${a.status === 'CONNECTED' ? 'badge-success' : 'badge-danger'}">
+            ${a.status}
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-sm btn-outline" onclick="openSettingsModal(${a.id})">Risk</button>
+            <button class="btn-sm btn-danger" onclick="deleteAccount(${a.id})">&times;</button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error("Failed to load admin followers:", err);
+  }
+}
+
+async function loadAdminMasters() {
+  try {
+    const res = await fetch("/api/accounts/master", { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const masters = await res.json();
+
+    const tbody = document.getElementById("tbody-admin-master");
+    if (masters.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No master registered. Click 'Register Master MT5' to add one.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = masters.map(m => `
+      <tr>
+        <td><strong>${m.name}</strong></td>
+        <td>#${m.login}</td>
+        <td class="text-muted">${m.server}</td>
+        <td>$${m.balance.toFixed(2)}</td>
+        <td><strong>$${m.equity.toFixed(2)}</strong></td>
+        <td><span class="badge badge-success">ACTIVE</span></td>
+        <td>
+          <button class="btn-sm btn-danger" onclick="deleteMasterAccount(${m.id})">&times;</button>
+        </td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error("Failed to load masters:", err);
   }
 }
 
@@ -169,119 +531,27 @@ async function loadActivePositions() {
     if (!res.ok) return;
     const trades = await res.json();
 
-    const tbody = document.getElementById("tbody-active-trades");
-    const tbodyAll = document.getElementById("tbody-all-active");
+    const tbody = document.getElementById("tbody-client-trades");
+    if (!tbody) return;
 
     if (trades.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No active open positions.</td></tr>`;
-      if (tbodyAll) tbodyAll.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No active open positions.</td></tr>`;
       return;
     }
 
-    const rows = trades.map(t => `
+    tbody.innerHTML = trades.map(t => `
       <tr>
-        <td><strong>#${t.master_ticket}</strong></td>
         <td>#${t.slave_ticket}</td>
         <td><strong>${t.symbol}</strong></td>
         <td><span class="badge ${t.order_type === 'BUY' ? 'badge-info' : 'badge-danger'}">${t.order_type}</span></td>
         <td>${t.volume.toFixed(2)}</td>
         <td>${t.open_price.toFixed(5)}</td>
         <td class="text-muted">${t.created_at ? new Date(t.created_at).toLocaleTimeString() : '--'}</td>
+        <td><span class="badge badge-success">ACTIVE</span></td>
       </tr>
     `).join("");
-
-    tbody.innerHTML = rows;
-    if (tbodyAll) {
-      tbodyAll.innerHTML = trades.map(t => `
-        <tr>
-          <td>${t.id}</td>
-          <td><strong>#${t.master_ticket}</strong></td>
-          <td>#${t.slave_ticket}</td>
-          <td><strong>${t.symbol}</strong></td>
-          <td><span class="badge ${t.order_type === 'BUY' ? 'badge-info' : 'badge-danger'}">${t.order_type}</span></td>
-          <td>${t.volume.toFixed(2)}</td>
-          <td>${t.open_price.toFixed(5)}</td>
-          <td><span class="badge badge-success">ACTIVE</span></td>
-        </tr>
-      `).join("");
-    }
   } catch (err) {
     console.error("Failed to load active positions:", err);
-  }
-}
-
-async function loadSlaveAccounts() {
-  try {
-    const res = await fetch("/api/accounts/slave", { headers: getAuthHeaders() });
-    if (!res.ok) return;
-    const accounts = await res.json();
-
-    const tbody = document.getElementById("tbody-slave-accounts");
-    if (accounts.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No follower accounts added yet. Click 'Add Follower Account' to connect one.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = accounts.map(a => `
-      <tr>
-        <td><strong>${a.name}</strong></td>
-        <td>${a.login}</td>
-        <td class="text-muted">${a.server}</td>
-        <td><strong>$${a.balance.toFixed(2)}</strong> / $${a.equity.toFixed(2)}</td>
-        <td>
-          <span class="badge ${a.status === 'CONNECTED' ? 'badge-success' : 'badge-danger'}">
-            ${a.status}
-          </span>
-        </td>
-        <td><span class="badge badge-gold">Cloud 24/7</span></td>
-        <td>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn-sm btn-outline" onclick="openSettingsModal(${a.id})">Risk Settings</button>
-            <button class="btn-sm btn-outline" onclick="testAccount(${a.id})">Verify</button>
-            <button class="btn-sm btn-danger" onclick="deleteAccount(${a.id})">&times;</button>
-          </div>
-        </td>
-      </tr>
-    `).join("");
-  } catch (err) {
-    console.error("Failed to load slave accounts:", err);
-  }
-}
-
-async function loadMasterAccounts() {
-  try {
-    const res = await fetch("/api/accounts/master", { headers: getAuthHeaders() });
-    if (!res.ok) return;
-    const masters = await res.json();
-
-    const tbody = document.getElementById("tbody-master-accounts");
-    if (masters.length > 0) {
-      document.getElementById("stat-master-login").textContent = `Login: ${masters[0].login} (${masters[0].server})`;
-    } else {
-      document.getElementById("stat-master-login").textContent = "No Master Connected";
-    }
-
-    if (masters.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No master account registered. Click 'Add Master Account' to register your master MT5 account.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = masters.map(m => `
-      <tr>
-        <td><strong>${m.name}</strong></td>
-        <td>${m.login}</td>
-        <td class="text-muted">${m.broker || m.server}</td>
-        <td>$${m.balance.toFixed(2)}</td>
-        <td><strong>$${m.equity.toFixed(2)}</strong></td>
-        <td><span class="badge badge-success">ACTIVE</span></td>
-        <td><span class="text-gold">Primary Master</span></td>
-        <td>
-          <button class="btn-sm btn-danger" onclick="deleteMasterAccount(${m.id})">&times;</button>
-        </td>
-      </tr>
-    `).join("");
-  } catch (err) {
-    console.error("Failed to load master accounts:", err);
   }
 }
 
@@ -292,8 +562,10 @@ async function loadTradeLogs() {
     const logs = await res.json();
 
     const tbody = document.getElementById("tbody-trade-logs");
+    if (!tbody) return;
+
     if (logs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No execution logs recorded yet. Trades will appear here when the Master executes an order.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No trade logs recorded yet.</td></tr>`;
       return;
     }
 
@@ -316,7 +588,31 @@ async function loadTradeLogs() {
   }
 }
 
-// ==================== FOLLOWER ACCOUNT ACTIONS ====================
+// ==================== LIVE MARKET QUOTES ====================
+async function fetchLiveMarketQuotes() {
+  try {
+    const res = await fetch("/api/trades/quotes", { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const quotes = await res.json();
+
+    if (quotes.XAUUSD && quotes.XAUUSD.ask) {
+      const q = quotes.XAUUSD.ask.toLocaleString(undefined, {minimumFractionDigits: 2});
+      const el1 = document.getElementById("ticker-gold");
+      const el2 = document.getElementById("landing-gold");
+      if (el1) el1.textContent = q;
+      if (el2) el2.textContent = q;
+    }
+    if (quotes.EURUSD && quotes.EURUSD.ask) {
+      const q = quotes.EURUSD.ask.toFixed(5);
+      const el1 = document.getElementById("ticker-eur");
+      const el2 = document.getElementById("landing-eur");
+      if (el1) el1.textContent = q;
+      if (el2) el2.textContent = q;
+    }
+  } catch (e) {}
+}
+
+// ==================== FOLLOWER ACCOUNT MODAL ====================
 function openAddAccountModal() {
   document.getElementById("modal-add-account").classList.add("show");
 }
@@ -335,7 +631,10 @@ async function submitAddAccount(e) {
     name: document.getElementById("acc-name").value,
     login: parseInt(document.getElementById("acc-login").value),
     password: document.getElementById("acc-password").value,
-    server: document.getElementById("acc-server").value
+    server: document.getElementById("acc-server").value,
+    payment_method: document.getElementById("acc-payment-method").value,
+    payment_reference: document.getElementById("acc-payment-ref").value,
+    telegram_handle: document.getElementById("acc-telegram").value
   };
 
   try {
@@ -348,50 +647,35 @@ async function submitAddAccount(e) {
     if (res.ok) {
       closeAddAccountModal();
       document.getElementById("form-add-account").reset();
-      loadSlaveAccounts();
-      loadStats();
+      alert("Your MT5 account has been submitted! It is now pending approval by DavidsonsFX Admin.");
+      loadDashboardData();
     } else {
       const err = await res.json();
-      alert("Verification Notice: " + (err.detail || "Could not register account. Ensure MT5 terminal is reachable."));
+      alert("Verification Notice: " + (err.detail || "Could not connect account. Ensure login and server are correct."));
     }
   } catch (err) {
     alert("Connection error: " + err.message);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<i data-lucide="check"></i> Connect & Verify Account`;
+    btn.innerHTML = `<i data-lucide="send"></i> Submit Account for Approval`;
     if (window.lucide) lucide.createIcons();
   }
 }
 
-async function testAccount(id) {
-  try {
-    const res = await fetch(`/api/accounts/slave/${id}/test`, {
-      method: "POST",
-      headers: getAuthHeaders()
-    });
-    const data = await res.json();
-    alert(`MT5 Account #${id}: ${data.success ? 'CONNECTED (Live Balance: $' + data.balance + ')' : 'FAILED (' + data.error + ')'}`);
-    loadSlaveAccounts();
-  } catch (e) {
-    alert("Test failed: " + e.message);
-  }
-}
-
 async function deleteAccount(id) {
-  if (!confirm("Are you sure you want to disconnect this MT5 follower account?")) return;
+  if (!confirm("Are you sure you want to remove this account?")) return;
   try {
     await fetch(`/api/accounts/slave/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders()
     });
-    loadSlaveAccounts();
-    loadStats();
+    loadDashboardData();
   } catch (e) {
     alert("Delete failed: " + e.message);
   }
 }
 
-// ==================== MASTER ACCOUNT ACTIONS ====================
+// ==================== MASTER ACCOUNT MODAL ====================
 function openAddMasterModal() {
   document.getElementById("modal-add-master").classList.add("show");
 }
@@ -423,8 +707,7 @@ async function submitAddMaster(e) {
     if (res.ok) {
       closeAddMasterModal();
       document.getElementById("form-add-master").reset();
-      loadMasterAccounts();
-      loadStats();
+      loadAdminMasters();
     } else {
       const err = await res.json();
       alert("Notice: " + (err.detail || "Failed to register master account"));
@@ -439,20 +722,19 @@ async function submitAddMaster(e) {
 }
 
 async function deleteMasterAccount(id) {
-  if (!confirm("Are you sure you want to remove this Master account?")) return;
+  if (!confirm("Are you sure you want to delete this master account?")) return;
   try {
     await fetch(`/api/accounts/master/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders()
     });
-    loadMasterAccounts();
-    loadStats();
+    loadAdminMasters();
   } catch (e) {
     alert("Delete failed: " + e.message);
   }
 }
 
-// ==================== SETTINGS MODAL ====================
+// ==================== RISK SETTINGS MODAL ====================
 async function openSettingsModal(slaveId) {
   document.getElementById("setting-slave-id").value = slaveId;
   try {

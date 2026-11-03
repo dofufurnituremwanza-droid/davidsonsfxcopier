@@ -82,6 +82,12 @@ def get_slave_accounts(db: Session = Depends(get_db), current_user: User = Depen
         return db.query(SlaveAccount).all()
     return db.query(SlaveAccount).filter(SlaveAccount.user_id == current_user.id).all()
 
+@router.get("/pending", response_model=List[SlaveAccountResponse])
+def get_pending_accounts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return db.query(SlaveAccount).filter(SlaveAccount.is_approved == False).order_by(SlaveAccount.created_at.desc()).all()
+
 @router.post("/slave", response_model=SlaveAccountResponse)
 def register_slave_account(
     account_in: SlaveAccountCreate,
@@ -96,6 +102,9 @@ def register_slave_account(
     )
 
     encrypted_pwd = encrypt_credential(account_in.password)
+    # Admin can add pre-approved accounts; normal users start as PENDING_APPROVAL
+    is_auto_approved = current_user.is_admin
+
     slave = SlaveAccount(
         user_id=current_user.id,
         name=account_in.name,
@@ -109,16 +118,23 @@ def register_slave_account(
         currency=test_result.get("currency", "USD"),
         last_ping=datetime.utcnow() if test_result.get("success") else None,
         last_error=test_result.get("error"),
-        is_active=True
+        is_active=is_auto_approved,
+        is_approved=is_auto_approved,
+        approval_status="APPROVED" if is_auto_approved else "PENDING_APPROVAL",
+        payment_reference=account_in.payment_reference,
+        payment_method=account_in.payment_method,
+        telegram_handle=account_in.telegram_handle
     )
     db.add(slave)
     db.commit()
     db.refresh(slave)
 
     # Automatically create default CopierSetting for this account
+    default_master = db.query(MasterAccount).filter(MasterAccount.is_active == True).first()
     default_setting = CopierSetting(
         slave_account_id=slave.id,
-        is_enabled=True,
+        master_account_id=default_master.id if default_master else None,
+        is_enabled=is_auto_approved,
         risk_mode="EQUITY_RATIO",
         fixed_lot=0.01,
         lot_multiplier=1.0,
@@ -137,6 +153,57 @@ def register_slave_account(
     db.commit()
 
     return slave
+
+@router.post("/slave/{id}/approve")
+def approve_slave_account(
+    id: int, 
+    master_id: Optional[int] = None,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    slave = db.query(SlaveAccount).filter(SlaveAccount.id == id).first()
+    if not slave:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    slave.is_approved = True
+    slave.is_active = True
+    slave.approval_status = "APPROVED"
+
+    setting = db.query(CopierSetting).filter(CopierSetting.slave_account_id == slave.id).first()
+    if setting:
+        if master_id:
+            setting.master_account_id = master_id
+        elif not setting.master_account_id:
+            default_master = db.query(MasterAccount).filter(MasterAccount.is_active == True).first()
+            if default_master:
+                setting.master_account_id = default_master.id
+        setting.is_enabled = True
+
+    db.commit()
+    db.refresh(slave)
+    return {"status": "SUCCESS", "message": f"Account #{slave.login} approved and activated for live copying."}
+
+@router.post("/slave/{id}/reject")
+def reject_slave_account(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    slave = db.query(SlaveAccount).filter(SlaveAccount.id == id).first()
+    if not slave:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    slave.is_approved = False
+    slave.is_active = False
+    slave.approval_status = "REJECTED"
+
+    setting = db.query(CopierSetting).filter(CopierSetting.slave_account_id == slave.id).first()
+    if setting:
+        setting.is_enabled = False
+
+    db.commit()
+    db.refresh(slave)
+    return {"status": "SUCCESS", "message": f"Account #{slave.login} rejected."}
 
 @router.put("/slave/{id}", response_model=SlaveAccountResponse)
 def update_slave_account(

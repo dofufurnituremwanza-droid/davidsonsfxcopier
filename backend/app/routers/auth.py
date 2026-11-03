@@ -34,7 +34,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=Token)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     # Check if user exists
     existing = db.query(User).filter((User.username == user_in.username) | (User.email == user_in.email)).first()
@@ -46,13 +46,26 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     user = User(
         username=user_in.username,
         email=user_in.email,
+        full_name=user_in.full_name,
+        phone=user_in.phone,
+        telegram=user_in.telegram,
         hashed_password=hashed_pwd,
         is_admin=is_first_user
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username, "id": user.id, "is_admin": user.is_admin},
+        expires_delta=access_token_expires
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
 
 @router.post("/token", response_model=Token)
 @router.post("/login", response_model=Token)

@@ -6,6 +6,9 @@ from pydantic import BaseModel, EmailStr, Field
 class UserBase(BaseModel):
     username: str
     email: EmailStr
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    telegram: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
@@ -55,6 +58,9 @@ class SlaveAccountBase(BaseModel):
     login: int
     server: str
     broker: Optional[str] = None
+    payment_reference: Optional[str] = None
+    payment_method: Optional[str] = None
+    telegram_handle: Optional[str] = None
 
 class SlaveAccountCreate(SlaveAccountBase):
     password: str
@@ -65,11 +71,15 @@ class SlaveAccountUpdate(BaseModel):
     broker: Optional[str] = None
     password: Optional[str] = None
     is_active: Optional[bool] = None
+    is_approved: Optional[bool] = None
+    approval_status: Optional[str] = None
 
 class SlaveAccountResponse(SlaveAccountBase):
     id: int
     user_id: int
     is_active: bool
+    is_approved: bool
+    approval_status: str
     status: str
     balance: float
     equity: float
@@ -80,6 +90,11 @@ class SlaveAccountResponse(SlaveAccountBase):
 
     class Config:
         from_attributes = True
+
+class SlaveApprovalRequest(BaseModel):
+    approved: bool
+    master_account_id: Optional[int] = None
+    notes: Optional[str] = None
 
 # Copier Settings Schemas
 class CopierSettingUpdate(BaseModel):

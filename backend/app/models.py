@@ -9,6 +9,9 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
+    full_name = Column(String(100), nullable=True)
+    phone = Column(String(50), nullable=True)
+    telegram = Column(String(100), nullable=True)
     hashed_password = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
@@ -44,7 +47,12 @@ class SlaveAccount(Base):
     encrypted_password = Column(String(500), nullable=False)
     server = Column(String(100), nullable=False)
     broker = Column(String(100), nullable=True)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=False)  # False until approved by admin
+    is_approved = Column(Boolean, default=False)
+    approval_status = Column(String(50), default="PENDING_APPROVAL")  # PENDING_APPROVAL, APPROVED, REJECTED, SUSPENDED
+    payment_reference = Column(String(100), nullable=True)
+    payment_method = Column(String(50), nullable=True)
+    telegram_handle = Column(String(100), nullable=True)
     status = Column(String(50), default="DISCONNECTED")  # CONNECTED, DISCONNECTED, ERROR
     balance = Column(Float, default=0.0)
     equity = Column(Float, default=0.0)
