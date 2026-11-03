@@ -8,11 +8,12 @@ echo.
 
 cd /d "%~dp0\.."
 
-if exist ".venv\Scripts\activate.bat" (
-    call .venv\Scripts\activate.bat
-    python backend\run_server.py
+where py >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [+] Starting DAVIDSONSFX Server via Python launcher...
+    py backend\run_server.py
 ) else (
-    echo [!] Virtual environment not detected. Running with system python...
+    echo [+] Starting DAVIDSONSFX Server via python...
     python backend\run_server.py
 )
 
