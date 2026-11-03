@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DAVIDSONSFX TRADING COPIER — Institutional Cloud MT5 Copier</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <i data-lucide="crown"></i>
+        </div>
+        <div class="brand-text">
+          <h2>DAVIDSONSFX</h2>
+          <span>INSTITUTIONAL COPIER</span>
+        </div>
+      </div>
+
+      <div class="vip-badge-pill">
+        <i data-lucide="shield-check"></i>
+        <span>GOLD & FX SMC ENGINE</span>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="overview">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="accounts">
+          <i data-lucide="users"></i>
+          <span>Follower Accounts</span>
+        </button>
+        <button class="nav-item" data-tab="master">
+          <i data-lucide="award"></i>
+          <span>Master Signal Provider</span>
+        </button>
+        <button class="nav-item" data-tab="trades">
+          <i data-lucide="arrow-left-right"></i>
+          <span>Active Positions</span>
+        </button>
+        <button class="nav-item" data-tab="logs">
+          <i data-lucide="activity"></i>
+          <span>Execution Audit</span>
+        </button>
+        <button class="nav-item" data-tab="simulator">
+          <i data-lucide="play-circle"></i>
+          <span>Signal Simulator</span>
+        </button>
+      </nav>
+
+      <div class="server-status-card">
+        <div class="status-indicator">
+          <span class="pulse-dot" id="ws-pulse"></span>
+          <span id="ws-status-text">Cloud Relay Online</span>
+        </div>
+        <div class="latency-stat">
+          <span>Speed:</span>
+          <strong id="live-latency">24.5 ms</strong>
+        </div>
+        <div class="latency-stat">
+          <span>Partner:</span>
+          <strong class="text-gold">Exness & MT5</strong>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Live Market Ticker Bar -->
+      <div class="gold-ticker-bar">
+        <div class="ticker-item">
+          <span class="ticker-sym text-gold">XAUUSD (GOLD)</span>
+          <span class="ticker-price ticker-highlight" id="ticker-gold">2,748.65</span>
+        </div>
+        <div class="ticker-item">
+          <span class="ticker-sym">EURUSD</span>
+          <span class="ticker-price" id="ticker-eur">1.0852</span>
+        </div>
+        <div class="ticker-item">
+          <span class="ticker-sym">US30 (DOW)</span>
+          <span class="ticker-price" id="ticker-us30">42,150.00</span>
+        </div>
+        <div class="ticker-item">
+          <span class="ticker-sym">BTCUSD</span>
+          <span class="ticker-price" id="ticker-btc">68,450.00</span>
+        </div>
+        <div class="ticker-item" style="margin-left: auto;">
+          <span class="badge badge-gold">INSTITUTIONAL SMC EXECUTION</span>
+        </div>
+      </div>
+
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="page-title">
+          <h1 id="page-title-text">Trading Copier Dashboard</h1>
+          <p>Zero-Install Cloud MetaTrader 5 trade replication powered by <strong>DavidsonsFX</strong></p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary" onclick="simulateTestTrade('BUY')">
+            <i data-lucide="trending-up"></i> Quick Gold Test
+          </button>
+          <button class="btn btn-primary" onclick="openAddAccountModal()">
+            <i data-lucide="user-plus"></i> Connect Follower MT5
+          </button>
+        </div>
+      </header>
+
+      <!-- Stat Cards -->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span>Active Followers</span>
+            <i data-lucide="users" class="stat-icon gold"></i>
+          </div>
+          <div class="stat-value" id="stat-followers">0</div>
+          <div class="stat-meta text-gold">Ready to copy 24/7</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span>Master Equity</span>
+            <i data-lucide="shield" class="stat-icon emerald"></i>
+          </div>
+          <div class="stat-value" id="stat-master-equity">$0.00</div>
+          <div class="stat-meta text-muted" id="stat-master-login">Login: --</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span>Total Copied Trades</span>
+            <i data-lucide="layers" class="stat-icon cyan"></i>
+          </div>
+          <div class="stat-value" id="stat-total-trades">0</div>
+          <div class="stat-meta text-emerald" id="stat-success-rate">100% Success</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span>Average Latency</span>
+            <i data-lucide="zap" class="stat-icon gold"></i>
+          </div>
+          <div class="stat-value" id="stat-avg-latency">24.5 ms</div>
+          <div class="stat-meta text-emerald">Ultra-low slippage</div>
+        </div>
+      </section>
+
+      <!-- TAB 1: OVERVIEW -->
+      <section class="tab-pane active" id="tab-overview">
+        <div class="content-row">
+          <!-- Active Positions Card -->
+          <div class="panel flex-2">
+            <div class="panel-header">
+              <div class="panel-title">
+                <i data-lucide="bar-chart-2"></i>
+                <h3>Active Replicated Positions</h3>
+              </div>
+              <button class="btn-sm btn-outline" onclick="loadActivePositions()">Refresh</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="table-active-trades">
+                <thead>
+                  <tr>
+                    <th>Master Ticket</th>
+                    <th>Slave Ticket</th>
+                    <th>Symbol</th>
+                    <th>Type</th>
+                    <th>Volume</th>
+                    <th>Open Price</th>
+                    <th>Open Time</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-active-trades">
+                  <tr>
+                    <td colspan="7" class="text-center text-muted py-4">No active open positions.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Risk Engine Overview -->
+          <div class="panel flex-1">
+            <div class="panel-header">
+              <div class="panel-title">
+                <i data-lucide="shield-alert"></i>
+                <h3>DavidsonsFX Risk Engine</h3>
+              </div>
+            </div>
+            <div class="risk-info-list">
+              <div class="risk-info-item">
+                <span>Default Lot Sizing</span>
+                <strong class="text-gold">Proportional Equity Ratio</strong>
+              </div>
+              <div class="risk-info-item">
+                <span>Max Allowed Slippage</span>
+                <strong>3.0 Pips</strong>
+              </div>
+              <div class="risk-info-item">
+                <span>Max Spread Filter</span>
+                <strong>5.0 Pips</strong>
+              </div>
+              <div class="risk-info-item">
+                <span>Gold Auto-Mapper</span>
+                <strong class="text-gold">Active (GOLD &harr; XAUUSD)</strong>
+              </div>
+              <div class="risk-info-item">
+                <span>Security Engine</span>
+                <strong class="text-emerald">AES-256 Fernet GCM</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: FOLLOWER ACCOUNTS -->
+      <section class="tab-pane" id="tab-accounts">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i data-lucide="users"></i>
+              <h3>Connected Follower MT5 Accounts</h3>
+            </div>
+            <button class="btn btn-primary" onclick="openAddAccountModal()">
+              <i data-lucide="plus"></i> Add Follower Account
+            </button>
+          </div>
+          <p class="panel-subtitle">
+            Subscribers connected to your DavidsonsFX Cloud Copier. Credentials are encrypted and trades copy 24/7 without client terminals needing to be powered on.
+          </p>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Account Name</th>
+                  <th>MT5 Login</th>
+                  <th>Server</th>
+                  <th>Balance / Equity</th>
+                  <th>Status</th>
+                  <th>Copier Mode</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-slave-accounts">
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-4">Loading follower accounts...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: MASTER ACCOUNT -->
+      <section class="tab-pane" id="tab-master">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i data-lucide="award"></i>
+              <h3>Master Signal Provider Account</h3>
+            </div>
+            <button class="btn btn-primary" onclick="openAddMasterModal()">
+              <i data-lucide="plus"></i> Add Master Account
+            </button>
+          </div>
+          <p class="panel-subtitle">
+            The primary trading account where the DavidsonsFX Master Trader executes trades. Any trade placed here is captured in real time by <code>DavidsonsFX_Master.mq5</code> and replicated.
+          </p>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Master Name</th>
+                  <th>Login</th>
+                  <th>Broker / Server</th>
+                  <th>Balance</th>
+                  <th>Equity</th>
+                  <th>Status</th>
+                  <th>Role</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-master-accounts">
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-4">Loading master accounts...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: ACTIVE POSITIONS -->
+      <section class="tab-pane" id="tab-trades">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i data-lucide="arrow-left-right"></i>
+              <h3>All Real-Time Replicated Positions</h3>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Master Ticket</th>
+                  <th>Slave Ticket</th>
+                  <th>Symbol</th>
+                  <th>Type</th>
+                  <th>Volume</th>
+                  <th>Open Price</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-all-active">
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">No active positions mapped.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: EXECUTION LOGS -->
+      <section class="tab-pane" id="tab-logs">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i data-lucide="activity"></i>
+              <h3>Execution Audit Trail</h3>
+            </div>
+            <button class="btn-sm btn-outline" onclick="loadTradeLogs()">Refresh Logs</button>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Master #</th>
+                  <th>Slave #</th>
+                  <th>Action</th>
+                  <th>Symbol</th>
+                  <th>Master Lot</th>
+                  <th>Slave Lot</th>
+                  <th>Latency</th>
+                  <th>Slippage</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-trade-logs">
+                <tr>
+                  <td colspan="10" class="text-center text-muted py-4">No execution logs recorded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: SIMULATOR -->
+      <section class="tab-pane" id="tab-simulator">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <i data-lucide="play-circle"></i>
+              <h3>DavidsonsFX Instant Trade Simulator</h3>
+            </div>
+          </div>
+          <p class="panel-subtitle">
+            Simulate instant Master trade signals (Open, Modify, Close) to verify execution speed, lot sizing, and follower copying in real time without risking broker balance.
+          </p>
+
+          <div class="simulator-controls">
+            <div class="input-group">
+              <label>Symbol</label>
+              <select id="sim-symbol" class="form-control">
+                <option value="XAUUSD">XAUUSD (Gold Specialist)</option>
+                <option value="EURUSD">EURUSD</option>
+                <option value="GBPUSD">GBPUSD</option>
+                <option value="USDJPY">USDJPY</option>
+                <option value="US30">US30 (Dow Jones)</option>
+                <option value="BTCUSD">BTCUSD</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label>Order Type</label>
+              <select id="sim-type" class="form-control">
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label>Master Volume (Lots)</label>
+              <input type="number" id="sim-volume" class="form-control" value="0.10" step="0.01" min="0.01">
+            </div>
+
+            <div class="input-group-btn">
+              <button class="btn btn-success" onclick="triggerSimulator('OPEN')">
+                <i data-lucide="send"></i> Dispatch OPEN Signal
+              </button>
+              <button class="btn btn-warning" onclick="triggerSimulator('MODIFY')">
+                <i data-lucide="edit"></i> Dispatch MODIFY Signal
+              </button>
+              <button class="btn btn-danger" onclick="triggerSimulator('CLOSE')">
+                <i data-lucide="x-circle"></i> Dispatch CLOSE Signal
+              </button>
+            </div>
+          </div>
+
+          <div class="sim-terminal" id="sim-terminal-output">
+            <div class="terminal-line text-muted">[System Ready] Enter test parameters above and click Dispatch.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: ADD FOLLOWER ACCOUNT -->
+  <div class="modal-backdrop" id="modal-add-account">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Connect Follower MT5 Account</h3>
+        <button class="modal-close" onclick="closeAddAccountModal()">&times;</button>
+      </div>
+      <form id="form-add-account" onsubmit="submitAddAccount(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Account Label / Name</label>
+            <input type="text" id="acc-name" class="form-control" placeholder="e.g. Exness Gold VIP" required>
+          </div>
+          <div class="form-group">
+            <label>MT5 Login Number</label>
+            <input type="number" id="acc-login" class="form-control" placeholder="e.g. 50123456" required>
+          </div>
+          <div class="form-group">
+            <label>MT5 Master Password</label>
+            <input type="password" id="acc-password" class="form-control" placeholder="Trading password" required>
+            <small class="form-hint">Stored securely using AES-256 Fernet military-grade encryption.</small>
+          </div>
+          <div class="form-group">
+            <label>Broker Server Name</label>
+            <input type="text" id="acc-server" class="form-control" placeholder="e.g. Exness-Real7 or ICMarketsSC-Live" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeAddAccountModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-account">
+            <i data-lucide="check"></i> Connect & Verify Account
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: COPIER RISK SETTINGS -->
+  <div class="modal-backdrop" id="modal-settings">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3>DavidsonsFX Risk Settings</h3>
+        <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+      </div>
+      <form id="form-copier-settings" onsubmit="submitSettings(event)">
+        <input type="hidden" id="setting-slave-id">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Risk Mode</label>
+              <select id="set-risk-mode" class="form-control">
+                <option value="EQUITY_RATIO">Proportional Equity Ratio (Recommended)</option>
+                <option value="BALANCE_RATIO">Proportional Balance Ratio</option>
+                <option value="LOT_MULTIPLIER">Lot Multiplier</option>
+                <option value="FIXED_LOT">Fixed Static Lot</option>
+                <option value="RISK_PERCENT">Risk Percentage per Trade</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Lot Multiplier</label>
+              <input type="number" id="set-multiplier" class="form-control" value="1.0" step="0.1">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Fixed Lot (if Fixed Mode)</label>
+              <input type="number" id="set-fixed-lot" class="form-control" value="0.01" step="0.01">
+            </div>
+            <div class="form-group">
+              <label>Max Allowed Lot</label>
+              <input type="number" id="set-max-lot" class="form-control" value="20.0" step="0.1">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Max Slippage (Pips)</label>
+              <input type="number" id="set-max-slippage" class="form-control" value="3.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label>Max Spread (Pips)</label>
+              <input type="number" id="set-max-spread" class="form-control" value="5.0" step="0.1">
+            </div>
+          </div>
+
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="set-copy-sl" checked>
+              <span>Copy Stop Loss</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="set-copy-tp" checked>
+              <span>Copy Take Profit</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="set-invert">
+              <span>Invert Trades (Reverse BUY &harr; SELL)</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeSettingsModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
