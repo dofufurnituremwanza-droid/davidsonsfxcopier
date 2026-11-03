@@ -37,11 +37,27 @@ def create_master_account(
     if existing:
         raise HTTPException(status_code=400, detail="Master account already registered")
 
+    real_balance = 0.0
+    real_equity = 0.0
+    real_currency = "USD"
+    real_broker = account_in.broker or account_in.server
+
+    if account_in.password:
+        conn = TerminalManager.test_connection(account_in.login, account_in.password, account_in.server)
+        if conn.get("success"):
+            real_balance = conn.get("balance", 0.0)
+            real_equity = conn.get("equity", 0.0)
+            real_currency = conn.get("currency", "USD")
+            real_broker = conn.get("broker", real_broker)
+
     master = MasterAccount(
         name=account_in.name,
         login=account_in.login,
         server=account_in.server,
-        broker=account_in.broker or account_in.server,
+        broker=real_broker,
+        balance=real_balance,
+        equity=real_equity,
+        currency=real_currency,
         is_active=True
     )
     db.add(master)

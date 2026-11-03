@@ -15,7 +15,7 @@ from app.ws.connection_manager import ws_manager
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
 
-# Seed default admin & master if not exists
+# Seed default admin if no users exist
 def seed_initial_data():
     db = SessionLocal()
     try:
@@ -29,22 +29,7 @@ def seed_initial_data():
             )
             db.add(admin)
             db.commit()
-            print("[DavidsonsFX] Default admin account seeded: admin / admin1234")
-
-        master = db.query(MasterAccount).first()
-        if not master:
-            master = MasterAccount(
-                name="DavidsonsFX Master Primary",
-                login=99887766,
-                server="MetaQuotes-Demo",
-                broker="MetaQuotes Software Corp.",
-                balance=25000.0,
-                equity=25000.0,
-                currency="USD"
-            )
-            db.add(master)
-            db.commit()
-            print("[DavidsonsFX] Default master account seeded.")
+            print("[DavidsonsFX] Default admin created: admin / admin1234")
     finally:
         db.close()
 

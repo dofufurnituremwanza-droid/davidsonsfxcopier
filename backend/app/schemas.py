@@ -36,7 +36,7 @@ class MasterAccountBase(BaseModel):
     broker: Optional[str] = None
 
 class MasterAccountCreate(MasterAccountBase):
-    pass
+    password: Optional[str] = None
 
 class MasterAccountResponse(MasterAccountBase):
     id: int

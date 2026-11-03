@@ -63,7 +63,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     success_trades = db.query(TradeLog).filter(TradeLog.status == "SUCCESS").count()
     failed_trades = db.query(TradeLog).filter(TradeLog.status == "FAILED").count()
 
-    avg_latency = db.query(func.avg(TradeLog.execution_ms)).filter(TradeLog.status == "SUCCESS").scalar() or 24.5
+    avg_latency = db.query(func.avg(TradeLog.execution_ms)).filter(TradeLog.status == "SUCCESS").scalar() or 0.0
     master_equity = db.query(func.sum(MasterAccount.equity)).scalar() or 0.0
     total_slave_equity = db.query(func.sum(SlaveAccount.equity)).filter(SlaveAccount.is_active == True).scalar() or 0.0
 
@@ -78,4 +78,22 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         master_equity=round(float(master_equity), 2),
         total_slave_equity=round(float(total_slave_equity), 2)
     )
+
+@router.get("/quotes")
+def get_live_market_quotes():
+    """Fetch live market quotes directly from MT5 terminal for key symbols."""
+    from app.engine.terminal_manager import TerminalManager
+    symbols = ["XAUUSD", "EURUSD", "US30", "BTCUSD"]
+    quotes = {}
+    for sym in symbols:
+        quote = TerminalManager.get_symbol_quote(sym)
+        if "error" not in quote:
+            quotes[sym] = {
+                "bid": quote.get("bid"),
+                "ask": quote.get("ask"),
+                "spread": quote.get("spread")
+            }
+        else:
+            quotes[sym] = None
+    return quotes
 

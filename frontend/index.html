@@ -51,9 +51,9 @@
           <i data-lucide="activity"></i>
           <span>Execution Audit</span>
         </button>
-        <button class="nav-item" data-tab="simulator">
-          <i data-lucide="play-circle"></i>
-          <span>Signal Simulator</span>
+        <button class="nav-item" data-tab="system">
+          <i data-lucide="server"></i>
+          <span>Terminal Health</span>
         </button>
       </nav>
 
@@ -64,11 +64,11 @@
         </div>
         <div class="latency-stat">
           <span>Speed:</span>
-          <strong id="live-latency">24.5 ms</strong>
+          <strong id="live-latency">-- ms</strong>
         </div>
         <div class="latency-stat">
-          <span>Partner:</span>
-          <strong class="text-gold">Exness & MT5</strong>
+          <span>Engine:</span>
+          <strong class="text-gold">MetaTrader 5</strong>
         </div>
       </div>
     </aside>
@@ -79,22 +79,22 @@
       <div class="gold-ticker-bar">
         <div class="ticker-item">
           <span class="ticker-sym text-gold">XAUUSD (GOLD)</span>
-          <span class="ticker-price ticker-highlight" id="ticker-gold">2,748.65</span>
+          <span class="ticker-price ticker-highlight" id="ticker-gold">--</span>
         </div>
         <div class="ticker-item">
           <span class="ticker-sym">EURUSD</span>
-          <span class="ticker-price" id="ticker-eur">1.0852</span>
+          <span class="ticker-price" id="ticker-eur">--</span>
         </div>
         <div class="ticker-item">
-          <span class="ticker-sym">US30 (DOW)</span>
-          <span class="ticker-price" id="ticker-us30">42,150.00</span>
+          <span class="ticker-sym">US30</span>
+          <span class="ticker-price" id="ticker-us30">--</span>
         </div>
         <div class="ticker-item">
           <span class="ticker-sym">BTCUSD</span>
-          <span class="ticker-price" id="ticker-btc">68,450.00</span>
+          <span class="ticker-price" id="ticker-btc">--</span>
         </div>
         <div class="ticker-item" style="margin-left: auto;">
-          <span class="badge badge-gold">INSTITUTIONAL SMC EXECUTION</span>
+          <span class="badge badge-gold">LIVE BROKER FEED</span>
         </div>
       </div>
 
@@ -105,8 +105,8 @@
           <p>Zero-Install Cloud MetaTrader 5 trade replication powered by <strong>DavidsonsFX</strong></p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-secondary" onclick="simulateTestTrade('BUY')">
-            <i data-lucide="trending-up"></i> Quick Gold Test
+          <button class="btn btn-secondary" onclick="openAddMasterModal()">
+            <i data-lucide="award"></i> Add Master MT5
           </button>
           <button class="btn btn-primary" onclick="openAddAccountModal()">
             <i data-lucide="user-plus"></i> Connect Follower MT5
@@ -131,7 +131,7 @@
             <i data-lucide="shield" class="stat-icon emerald"></i>
           </div>
           <div class="stat-value" id="stat-master-equity">$0.00</div>
-          <div class="stat-meta text-muted" id="stat-master-login">Login: --</div>
+          <div class="stat-meta text-muted" id="stat-master-login">No Master Connected</div>
         </div>
 
         <div class="stat-card">
@@ -140,7 +140,7 @@
             <i data-lucide="layers" class="stat-icon cyan"></i>
           </div>
           <div class="stat-value" id="stat-total-trades">0</div>
-          <div class="stat-meta text-emerald" id="stat-success-rate">100% Success</div>
+          <div class="stat-meta text-emerald" id="stat-success-rate">0% Success</div>
         </div>
 
         <div class="stat-card">
@@ -148,8 +148,8 @@
             <span>Average Latency</span>
             <i data-lucide="zap" class="stat-icon gold"></i>
           </div>
-          <div class="stat-value" id="stat-avg-latency">24.5 ms</div>
-          <div class="stat-meta text-emerald">Ultra-low slippage</div>
+          <div class="stat-value" id="stat-avg-latency">0.0 ms</div>
+          <div class="stat-meta text-emerald">Sub-millisecond relay</div>
         </div>
       </section>
 
@@ -285,11 +285,12 @@
                   <th>Equity</th>
                   <th>Status</th>
                   <th>Role</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="tbody-master-accounts">
                 <tr>
-                  <td colspan="7" class="text-center text-muted py-4">Loading master accounts...</td>
+                  <td colspan="8" class="text-center text-muted py-4">No master account registered. Click 'Add Master Account' to register your master MT5 account.</td>
                 </tr>
               </tbody>
             </table>
@@ -366,60 +367,40 @@
         </div>
       </section>
 
-      <!-- TAB 6: SIMULATOR -->
-      <section class="tab-pane" id="tab-simulator">
+      <!-- TAB 6: TERMINAL HEALTH -->
+      <section class="tab-pane" id="tab-system">
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">
-              <i data-lucide="play-circle"></i>
-              <h3>DavidsonsFX Instant Trade Simulator</h3>
+              <i data-lucide="server"></i>
+              <h3>MetaTrader 5 Host & Copier Health</h3>
             </div>
           </div>
           <p class="panel-subtitle">
-            Simulate instant Master trade signals (Open, Modify, Close) to verify execution speed, lot sizing, and follower copying in real time without risking broker balance.
+            Diagnostics and real-time status of the MetaTrader 5 engine running on this server.
           </p>
 
-          <div class="simulator-controls">
-            <div class="input-group">
-              <label>Symbol</label>
-              <select id="sim-symbol" class="form-control">
-                <option value="XAUUSD">XAUUSD (Gold Specialist)</option>
-                <option value="EURUSD">EURUSD</option>
-                <option value="GBPUSD">GBPUSD</option>
-                <option value="USDJPY">USDJPY</option>
-                <option value="US30">US30 (Dow Jones)</option>
-                <option value="BTCUSD">BTCUSD</option>
-              </select>
+          <div class="risk-info-list" style="max-width: 600px;">
+            <div class="risk-info-item">
+              <span>Operating System</span>
+              <strong id="sys-os">Windows Server / Windows 64-bit</strong>
             </div>
-
-            <div class="input-group">
-              <label>Order Type</label>
-              <select id="sim-type" class="form-control">
-                <option value="BUY">BUY</option>
-                <option value="SELL">SELL</option>
-              </select>
+            <div class="risk-info-item">
+              <span>MetaTrader 5 Terminal Path</span>
+              <code>C:\Program Files\MetaTrader 5\terminal64.exe</code>
             </div>
-
-            <div class="input-group">
-              <label>Master Volume (Lots)</label>
-              <input type="number" id="sim-volume" class="form-control" value="0.10" step="0.01" min="0.01">
+            <div class="risk-info-item">
+              <span>Relay Server URL</span>
+              <code id="sys-url">http://127.0.0.1:8000/api/webhook/signal</code>
             </div>
-
-            <div class="input-group-btn">
-              <button class="btn btn-success" onclick="triggerSimulator('OPEN')">
-                <i data-lucide="send"></i> Dispatch OPEN Signal
-              </button>
-              <button class="btn btn-warning" onclick="triggerSimulator('MODIFY')">
-                <i data-lucide="edit"></i> Dispatch MODIFY Signal
-              </button>
-              <button class="btn btn-danger" onclick="triggerSimulator('CLOSE')">
-                <i data-lucide="x-circle"></i> Dispatch CLOSE Signal
-              </button>
+            <div class="risk-info-item">
+              <span>Database Storage</span>
+              <strong class="text-emerald">SQLite / Production Ready</strong>
             </div>
-          </div>
-
-          <div class="sim-terminal" id="sim-terminal-output">
-            <div class="terminal-line text-muted">[System Ready] Enter test parameters above and click Dispatch.</div>
+            <div class="risk-info-item">
+              <span>Password Security</span>
+              <strong class="text-gold">AES-256 Fernet Encrypted</strong>
+            </div>
           </div>
         </div>
       </section>
@@ -457,6 +438,42 @@
           <button type="button" class="btn btn-outline" onclick="closeAddAccountModal()">Cancel</button>
           <button type="submit" class="btn btn-primary" id="btn-save-account">
             <i data-lucide="check"></i> Connect & Verify Account
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD MASTER ACCOUNT -->
+  <div class="modal-backdrop" id="modal-add-master">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Register Master MT5 Account</h3>
+        <button class="modal-close" onclick="closeAddMasterModal()">&times;</button>
+      </div>
+      <form id="form-add-master" onsubmit="submitAddMaster(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Master Provider Name</label>
+            <input type="text" id="master-name" class="form-control" placeholder="e.g. DavidsonsFX Primary Gold" required>
+          </div>
+          <div class="form-group">
+            <label>Master MT5 Login Number</label>
+            <input type="number" id="master-login" class="form-control" placeholder="e.g. 10293847" required>
+          </div>
+          <div class="form-group">
+            <label>Master Trading Password (Optional for live balance sync)</label>
+            <input type="password" id="master-password" class="form-control" placeholder="Leave blank if using EA signal only">
+          </div>
+          <div class="form-group">
+            <label>Broker Server Name</label>
+            <input type="text" id="master-server" class="form-control" placeholder="e.g. Exness-Real7" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeAddMasterModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-master">
+            <i data-lucide="check"></i> Save Master Account
           </button>
         </div>
       </form>

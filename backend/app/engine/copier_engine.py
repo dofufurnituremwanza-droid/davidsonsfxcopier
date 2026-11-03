@@ -175,16 +175,29 @@ class CopierEngine:
                 if signal.sl and signal.sl > 0:
                     sl_distance = abs(signal.price - signal.sl) / SymbolMapper.get_pip_size(slave_symbol, signal.price)
 
+                # Retrieve live slave equity and balance if uninitialized
+                slave_equity = slave.equity
+                slave_balance = slave.balance
+                if slave_equity <= 0 or slave_balance <= 0:
+                    conn_info = TerminalManager.test_connection(slave.login, password, slave.server)
+                    if conn_info.get("success"):
+                        slave.balance = conn_info.get("balance", slave.balance)
+                        slave.equity = conn_info.get("equity", slave.equity)
+                        slave.currency = conn_info.get("currency", slave.currency)
+                        slave_equity = slave.equity
+                        slave_balance = slave.balance
+                        db.commit()
+
                 slave_lot = LotCalculator.calculate_lot(
                     master_lot=signal.volume,
                     risk_mode=setting.risk_mode,
                     fixed_lot=setting.fixed_lot,
                     lot_multiplier=setting.lot_multiplier,
                     risk_percent=setting.risk_percent,
-                    master_equity=master_equity,
-                    slave_equity=slave.equity if slave.equity > 0 else 1000.0,
-                    master_balance=master_balance,
-                    slave_balance=slave.balance if slave.balance > 0 else 1000.0,
+                    master_equity=master_equity if master_equity > 0 else slave_equity,
+                    slave_equity=slave_equity,
+                    master_balance=master_balance if master_balance > 0 else slave_balance,
+                    slave_balance=slave_balance,
                     min_lot=setting.min_lot,
                     max_lot=setting.max_lot,
                     sl_distance_pips=sl_distance

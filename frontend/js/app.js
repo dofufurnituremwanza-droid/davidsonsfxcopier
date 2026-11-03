@@ -1,4 +1,4 @@
-// DAVIDSONSFX TRADING COPIER - Frontend Engine
+// DAVIDSONSFX TRADING COPIER — Real-Time Frontend Engine
 let ws = null;
 let authToken = localStorage.getItem("dfx_token") || "";
 
@@ -8,30 +8,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   await ensureAuthentication();
   initWebSocket();
   loadDashboardData();
-  startLiveTickerSimulation();
+  fetchLiveMarketQuotes();
 
-  // Periodically refresh stats & logs
-  setInterval(loadDashboardData, 5000);
+  // Periodically refresh stats, active positions, and quotes
+  setInterval(loadDashboardData, 4000);
+  setInterval(fetchLiveMarketQuotes, 5000);
 });
-
-// Live market ticker subtle tick updates
-function startLiveTickerSimulation() {
-  setInterval(() => {
-    const goldElem = document.getElementById("ticker-gold");
-    if (goldElem) {
-      const base = 2748.65;
-      const variation = (Math.random() * 0.8 - 0.4).toFixed(2);
-      const newPrice = (base + parseFloat(variation)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      goldElem.textContent = newPrice;
-    }
-  }, 2500);
-}
 
 // ==================== AUTHENTICATION ====================
 async function ensureAuthentication() {
   if (authToken) return;
 
-  // Auto-authenticate as default admin for instant zero-friction local access
   try {
     const formData = new URLSearchParams();
     formData.append("username", "admin");
@@ -49,7 +36,7 @@ async function ensureAuthentication() {
       localStorage.setItem("dfx_token", authToken);
     }
   } catch (err) {
-    console.warn("Auth initialization notice:", err);
+    console.warn("Authentication notice:", err);
   }
 }
 
@@ -79,7 +66,7 @@ function setupNavigation() {
         master: "Master Signal Provider",
         trades: "Active Copied Positions",
         logs: "Execution Audit Trail",
-        simulator: "Instant Signal Simulator"
+        system: "Host & Terminal Diagnostics"
       };
       document.getElementById("page-title-text").textContent = titleMap[tabId] || "Trading Copier";
     });
@@ -96,7 +83,6 @@ function initWebSocket() {
   ws.onopen = () => {
     document.getElementById("ws-pulse").style.backgroundColor = "#10b981";
     document.getElementById("ws-status-text").textContent = "Cloud Relay Live";
-    logSimOutput("[WebSocket] Connected to DavidsonsFX Trade Relay engine.");
   };
 
   ws.onmessage = (event) => {
@@ -110,21 +96,38 @@ function initWebSocket() {
 
   ws.onclose = () => {
     document.getElementById("ws-pulse").style.backgroundColor = "#f43f5e";
-    document.getElementById("ws-status-text").textContent = "Reconnecting...";
+    document.getElementById("ws-status-text").textContent = "Connecting...";
     setTimeout(initWebSocket, 3000);
   };
 }
 
 function handleWebSocketMessage(msg) {
-  if (msg.type === "SIGNAL_PROCESSED") {
-    logSimOutput(`[SIGNAL] Master ${msg.action} on ${msg.symbol} dispatched to ${msg.followers_targeted} followers`);
+  if (msg.type === "SIGNAL_PROCESSED" || msg.type === "TRADE_OPENED" || msg.type === "TRADE_CLOSED") {
     loadDashboardData();
-  } else if (msg.type === "TRADE_OPENED") {
-    logSimOutput(`[COPIED] Account #${msg.slave_id} opened ${msg.symbol} ${msg.lot}L (Ticket: #${msg.ticket}) in ${msg.latency_ms}ms`);
-    loadDashboardData();
-  } else if (msg.type === "TRADE_CLOSED") {
-    logSimOutput(`[CLOSED] Account #${msg.slave_id} closed ticket #${msg.ticket} (PnL: $${msg.profit})`);
-    loadDashboardData();
+  }
+}
+
+// ==================== LIVE MARKET QUOTES ====================
+async function fetchLiveMarketQuotes() {
+  try {
+    const res = await fetch("/api/trades/quotes", { headers: getAuthHeaders() });
+    if (!res.ok) return;
+    const quotes = await res.json();
+
+    if (quotes.XAUUSD && quotes.XAUUSD.ask) {
+      document.getElementById("ticker-gold").textContent = quotes.XAUUSD.ask.toLocaleString(undefined, {minimumFractionDigits: 2});
+    }
+    if (quotes.EURUSD && quotes.EURUSD.ask) {
+      document.getElementById("ticker-eur").textContent = quotes.EURUSD.ask.toFixed(5);
+    }
+    if (quotes.US30 && quotes.US30.ask) {
+      document.getElementById("ticker-us30").textContent = quotes.US30.ask.toLocaleString(undefined, {minimumFractionDigits: 1});
+    }
+    if (quotes.BTCUSD && quotes.BTCUSD.ask) {
+      document.getElementById("ticker-btc").textContent = quotes.BTCUSD.ask.toLocaleString(undefined, {minimumFractionDigits: 2});
+    }
+  } catch (err) {
+    // Quotes will update once MT5 is active
   }
 }
 
@@ -149,7 +152,7 @@ async function loadStats() {
     document.getElementById("stat-master-equity").textContent = `$${stats.master_equity.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     document.getElementById("stat-total-trades").textContent = stats.total_copied_trades;
     document.getElementById("stat-avg-latency").textContent = `${stats.avg_latency_ms} ms`;
-    document.getElementById("live-latency").textContent = `${stats.avg_latency_ms} ms`;
+    document.getElementById("live-latency").textContent = stats.total_copied_trades > 0 ? `${stats.avg_latency_ms} ms` : "Live";
     
     const rate = stats.total_copied_trades > 0 
       ? Math.round((stats.successful_trades / stats.total_copied_trades) * 100) 
@@ -230,11 +233,11 @@ async function loadSlaveAccounts() {
             ${a.status}
           </span>
         </td>
-        <td><span class="badge badge-info">Cloud 24/7</span></td>
+        <td><span class="badge badge-gold">Cloud 24/7</span></td>
         <td>
           <div style="display: flex; gap: 8px;">
             <button class="btn-sm btn-outline" onclick="openSettingsModal(${a.id})">Risk Settings</button>
-            <button class="btn-sm btn-outline" onclick="testAccount(${a.id})">Ping</button>
+            <button class="btn-sm btn-outline" onclick="testAccount(${a.id})">Verify</button>
             <button class="btn-sm btn-danger" onclick="deleteAccount(${a.id})">&times;</button>
           </div>
         </td>
@@ -254,10 +257,12 @@ async function loadMasterAccounts() {
     const tbody = document.getElementById("tbody-master-accounts");
     if (masters.length > 0) {
       document.getElementById("stat-master-login").textContent = `Login: ${masters[0].login} (${masters[0].server})`;
+    } else {
+      document.getElementById("stat-master-login").textContent = "No Master Connected";
     }
 
     if (masters.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No master account configured.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No master account registered. Click 'Add Master Account' to register your master MT5 account.</td></tr>`;
       return;
     }
 
@@ -269,7 +274,10 @@ async function loadMasterAccounts() {
         <td>$${m.balance.toFixed(2)}</td>
         <td><strong>$${m.equity.toFixed(2)}</strong></td>
         <td><span class="badge badge-success">ACTIVE</span></td>
-        <td><span class="text-muted">Primary Provider</span></td>
+        <td><span class="text-gold">Primary Master</span></td>
+        <td>
+          <button class="btn-sm btn-danger" onclick="deleteMasterAccount(${m.id})">&times;</button>
+        </td>
       </tr>
     `).join("");
   } catch (err) {
@@ -285,7 +293,7 @@ async function loadTradeLogs() {
 
     const tbody = document.getElementById("tbody-trade-logs");
     if (logs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No execution logs recorded yet.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No execution logs recorded yet. Trades will appear here when the Master executes an order.</td></tr>`;
       return;
     }
 
@@ -308,7 +316,7 @@ async function loadTradeLogs() {
   }
 }
 
-// ==================== ACTIONS ====================
+// ==================== FOLLOWER ACCOUNT ACTIONS ====================
 function openAddAccountModal() {
   document.getElementById("modal-add-account").classList.add("show");
 }
@@ -342,10 +350,9 @@ async function submitAddAccount(e) {
       document.getElementById("form-add-account").reset();
       loadSlaveAccounts();
       loadStats();
-      logSimOutput(`[Account] Follower MT5 Account #${payload.login} connected successfully!`);
     } else {
       const err = await res.json();
-      alert("Error: " + (err.detail || "Failed to add account"));
+      alert("Verification Notice: " + (err.detail || "Could not register account. Ensure MT5 terminal is reachable."));
     }
   } catch (err) {
     alert("Connection error: " + err.message);
@@ -363,7 +370,7 @@ async function testAccount(id) {
       headers: getAuthHeaders()
     });
     const data = await res.json();
-    alert(`Connection test for #${id}: ${data.success ? 'SUCCESS (Balance: $' + data.balance + ')' : 'FAILED (' + data.error + ')'}`);
+    alert(`MT5 Account #${id}: ${data.success ? 'CONNECTED (Live Balance: $' + data.balance + ')' : 'FAILED (' + data.error + ')'}`);
     loadSlaveAccounts();
   } catch (e) {
     alert("Test failed: " + e.message);
@@ -378,6 +385,67 @@ async function deleteAccount(id) {
       headers: getAuthHeaders()
     });
     loadSlaveAccounts();
+    loadStats();
+  } catch (e) {
+    alert("Delete failed: " + e.message);
+  }
+}
+
+// ==================== MASTER ACCOUNT ACTIONS ====================
+function openAddMasterModal() {
+  document.getElementById("modal-add-master").classList.add("show");
+}
+
+function closeAddMasterModal() {
+  document.getElementById("modal-add-master").classList.remove("show");
+}
+
+async function submitAddMaster(e) {
+  e.preventDefault();
+  const btn = document.getElementById("btn-save-master");
+  btn.disabled = true;
+  btn.textContent = "Connecting Master MT5...";
+
+  const payload = {
+    name: document.getElementById("master-name").value,
+    login: parseInt(document.getElementById("master-login").value),
+    password: document.getElementById("master-password").value || null,
+    server: document.getElementById("master-server").value
+  };
+
+  try {
+    const res = await fetch("/api/accounts/master", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      closeAddMasterModal();
+      document.getElementById("form-add-master").reset();
+      loadMasterAccounts();
+      loadStats();
+    } else {
+      const err = await res.json();
+      alert("Notice: " + (err.detail || "Failed to register master account"));
+    }
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="check"></i> Save Master Account`;
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+async function deleteMasterAccount(id) {
+  if (!confirm("Are you sure you want to remove this Master account?")) return;
+  try {
+    await fetch(`/api/accounts/master/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders()
+    });
+    loadMasterAccounts();
     loadStats();
   } catch (e) {
     alert("Delete failed: " + e.message);
@@ -435,7 +503,6 @@ async function submitSettings(e) {
 
     if (res.ok) {
       closeSettingsModal();
-      logSimOutput(`[Settings] Updated risk parameters for slave account #${slaveId}`);
     } else {
       alert("Failed to update settings");
     }
@@ -443,48 +510,3 @@ async function submitSettings(e) {
     alert("Error saving settings: " + e.message);
   }
 }
-
-// ==================== SIMULATOR ====================
-async function triggerSimulator(action) {
-  const symbol = document.getElementById("sim-symbol").value;
-  const orderType = document.getElementById("sim-type").value;
-  const volume = parseFloat(document.getElementById("sim-volume").value);
-
-  logSimOutput(`[Dispatching] Action: ${action} | Symbol: ${symbol} | Type: ${orderType} | Volume: ${volume}L...`);
-
-  try {
-    const res = await fetch(`/api/webhook/test-signal?symbol=${symbol}&order_type=${orderType}&volume=${volume}&action=${action}`, {
-      method: "POST"
-    });
-    const data = await res.json();
-    logSimOutput(`[Success] Master Trade #${data.result?.master_ticket || 'OK'}: Replicated to followers.`);
-    loadDashboardData();
-  } catch (err) {
-    logSimOutput(`[Error] Signal simulation failed: ${err.message}`);
-  }
-}
-
-async function simulateTestTrade(type) {
-  try {
-    const res = await fetch(`/api/webhook/test-signal?symbol=EURUSD&order_type=${type}&volume=0.10&action=OPEN`, {
-      method: "POST"
-    });
-    const data = await res.json();
-    logSimOutput(`[Quick Test] Copied 0.10 ${type} EURUSD across all followers!`);
-    loadDashboardData();
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function logSimOutput(msg) {
-  const term = document.getElementById("sim-terminal-output");
-  if (!term) return;
-  const line = document.createElement("div");
-  line.className = "terminal-line";
-  const time = new Date().toLocaleTimeString();
-  line.textContent = `[${time}] ${msg}`;
-  term.appendChild(line);
-  term.scrollTop = term.scrollHeight;
-}
-
