@@ -606,10 +606,10 @@ async function loadTradeLogs() {
   }
 }
 
-// ==================== LIVE MARKET QUOTES ====================
+// ==================== LIVE MARKET QUOTES (GOLD FOCUSED) ====================
 async function fetchLiveMarketQuotes() {
   try {
-    const res = await fetch(apiUrl("/api/trades/quotes", { headers: getAuthHeaders() });
+    const res = await fetch(apiUrl("/api/trades/quotes"), { headers: getAuthHeaders() });
     if (!res.ok) return;
     const quotes = await res.json();
 
@@ -619,13 +619,12 @@ async function fetchLiveMarketQuotes() {
       const el2 = document.getElementById("landing-gold");
       if (el1) el1.textContent = q;
       if (el2) el2.textContent = q;
-    }
-    if (quotes.EURUSD && quotes.EURUSD.ask) {
-      const q = quotes.EURUSD.ask.toFixed(5);
-      const el1 = document.getElementById("ticker-eur");
-      const el2 = document.getElementById("landing-eur");
-      if (el1) el1.textContent = q;
-      if (el2) el2.textContent = q;
+
+      const elSpread = document.getElementById("landing-gold-spread");
+      if (elSpread && quotes.XAUUSD.bid) {
+        const spreadPips = ((quotes.XAUUSD.ask - quotes.XAUUSD.bid) * 10).toFixed(1);
+        elSpread.textContent = spreadPips + " Pips";
+      }
     }
   } catch (e) {}
 }
