@@ -1,32 +1,33 @@
-# Python
+# Local backend, MT5, and scripts (kept safe on local PC, excluded from website repo)
+backend/
+mql5/
+scripts/
+frontend/
+CLIENT_HANDOVER_MANUAL.md
+*.py
+*.bat
+*.ps1
+*.mq5
+*.ex5
+*.db
+*.sqlite3
+.vercelignore
+
+# Python & caches
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
 env/
 venv/
 .venv/
-ENV/
 
-# Database & State
-*.db
-*.sqlite3
-*.sqlite
-
-# Logs & Environment
+# Environment & Logs
 *.log
 .env
 .env.local
 
-# IDEs
+# IDEs & OS
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# OS files
 Thumbs.db
 Desktop.ini
 .DS_Store
-
