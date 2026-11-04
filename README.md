@@ -120,8 +120,8 @@ The server will start at:
 - **Interactive API Docs**: `http://localhost:8000/docs`
 
 Default Admin Login:
-- **Username**: `admin`
-- **Password**: `admin1234`
+- **Username**: `davidsonsfx`
+- **Password**: `davidson2026`
 
 ---
 

@@ -19,17 +19,18 @@ Base.metadata.create_all(bind=engine)
 def seed_initial_data():
     db = SessionLocal()
     try:
-        admin = db.query(User).filter(User.username == "admin").first()
+        admin = db.query(User).filter(User.username == "davidsonsfx").first()
         if not admin:
             admin = User(
-                username="admin",
+                username="davidsonsfx",
                 email="admin@davidsonsfx.com",
-                hashed_password=get_password_hash("admin1234"),
+                full_name="DavidsonsFX Administrator",
+                hashed_password=get_password_hash("davidson2026"),
                 is_admin=True
             )
             db.add(admin)
             db.commit()
-            print("[DavidsonsFX] Default admin created: admin / admin1234")
+            print("[DavidsonsFX] Default admin created: davidsonsfx / davidson2026")
     finally:
         db.close()
 

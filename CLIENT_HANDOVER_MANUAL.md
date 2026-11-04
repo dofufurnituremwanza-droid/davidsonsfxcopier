@@ -48,8 +48,8 @@ To run the copier 24/7, deploy onto a Windows VPS:
    - Access the dashboard at `http://localhost:8000` (or `http://YOUR_VPS_IP:8000`).
 
 5. **Default Admin Login:**
-   - **Username:** `admin`
-   - **Password:** `admin1234` *(Please change after first login)*
+   - **Username:** `davidsonsfx`
+   - **Password:** `davidson2026` *(Please change after first login)*
 
 ---
 
