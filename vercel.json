@@ -27,3 +27,4 @@
     { "source": "/static/(.*)", "destination": "/$1" }
   ]
 }
+

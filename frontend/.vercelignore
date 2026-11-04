@@ -1,0 +1,18 @@
+# Ignore backend Python files and MT5 scripts from Vercel deployment
+# This prevents Vercel from attempting to create Serverless Functions
+backend/
+backend/**
+mql5/
+mql5/**
+scripts/
+scripts/**
+*.py
+*.pyc
+*.bat
+*.ps1
+*.mq5
+*.ex5
+*.db
+*.sqlite3
+CLIENT_HANDOVER_MANUAL.md
+README.md
