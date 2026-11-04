@@ -93,6 +93,16 @@ body {
   border-bottom: 1px solid rgba(212, 175, 55, 0.15);
 }
 
+.brand-logo-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--border-gold);
+  box-shadow: var(--shadow-gold);
+  background: #000;
+}
+
 .brand-icon {
   width: 44px;
   height: 44px;
