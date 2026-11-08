@@ -1330,8 +1330,11 @@ svg.lucide {
 
 /* Pricing Grid */
 .pricing-grid {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+  max-width: 860px;
+  margin: 0 auto;
 }
 
 .pricing-card {
@@ -1340,12 +1343,21 @@ svg.lucide {
   border-radius: var(--radius-lg);
   padding: 3rem 2.5rem;
   width: 100%;
-  max-width: 450px;
   position: relative;
   box-shadow: 0 12px 35px -5px rgba(16, 185, 129, 0.18);
   display: flex;
   flex-direction: column;
   transition: all 0.25s ease;
+}
+
+.pricing-card.pricing-card-secondary {
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
+}
+
+.pricing-card.pricing-card-secondary:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.12);
 }
 
 .pricing-card:hover {

@@ -641,6 +641,13 @@ function closeAddAccountModal() {
 async function submitAddAccount(e) {
   e.preventDefault();
   const btn = document.getElementById("btn-save-account");
+
+  const serverVal = document.getElementById("acc-server").value.trim();
+  if (!serverVal.toLowerCase().includes("exness")) {
+    alert("DavidsonsFX Copier exclusively accepts Exness MT5 accounts registered under our official partner link.\n\nPlease open an Exness account at: https://www.exness.com/?utm_source=partners&ex_ol=1 and deposit a minimum of $500 USD.");
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = "Verifying MT5...";
 
@@ -648,14 +655,14 @@ async function submitAddAccount(e) {
     name: document.getElementById("acc-name").value,
     login: parseInt(document.getElementById("acc-login").value),
     password: document.getElementById("acc-password").value,
-    server: document.getElementById("acc-server").value,
+    server: serverVal,
     payment_method: document.getElementById("acc-payment-method").value,
     payment_reference: document.getElementById("acc-payment-ref").value,
     telegram_handle: document.getElementById("acc-telegram").value
   };
 
   try {
-    const res = await fetch(apiUrl("/api/accounts/slave", {
+    const res = await fetch(apiUrl("/api/accounts/slave"), {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify(payload)
